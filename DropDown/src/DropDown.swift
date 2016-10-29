@@ -39,8 +39,7 @@ extension DataSourceType {
     }
 }
 // DataSourceType can only be an Array or a String
-extension Array: DataSourceType {
-}
+extension Array: DataSourceType {}
 extension String: DataSourceType {
     subscript(i: Int) -> String {
         return self
@@ -1103,7 +1102,15 @@ extension DropDown {
 // MARK: - Utlities
 extension DropDown {
     fileprivate func dataSourceContentFor(index: IndexPath) -> String? {
-        return dataSource[index.section].of(i: index.row)
+        if dataSource.first is String {
+            return dataSource[index.row] as? String
+        }
+        if dataSource.first is [String] {
+            if let _content = dataSource[index.section] as? [String] {
+                return _content[index.row]
+            }
+        }
+        return nil
     }
     fileprivate func numberOfRowsForSection(section: Int) -> Int {
         if dataSource.first is [String] {
