@@ -8,7 +8,45 @@
 
 import UIKit
 
-public typealias Index = Int
+// MARK: Types
+/// Index Protocol
+public protocol Index {
+    var asIndexPath : IndexPath {get}
+    var section: Int {get}
+    var row: Int {get}
+}
+// Index can only be an Int or  NSIndexPath
+extension Int: Index {
+    public var asIndexPath: IndexPath { return IndexPath(row: self, section: 0) }
+    public var section: Int {return 0}
+    public var row: Int {return self}
+}
+extension IndexPath: Index {
+    public var asIndexPath: IndexPath { return self }
+}
+/// DataSourceType PROTOCOL Represent the data type of the List contents
+public protocol DataSourceType {
+    
+}
+extension DataSourceType {
+    func of(i: Int) -> String? {
+        if self is String {
+            return (self as! String)[i]
+        } else if self is Array<String>{
+            return (self as! Array)[i]
+        }
+        return nil
+    }
+}
+// DataSourceType can only be an Array or a String
+extension Array: DataSourceType {
+}
+extension String: DataSourceType {
+    subscript(i: Int) -> String {
+        return self
+    }
+}
+
 public typealias Closure = () -> Void
 public typealias SelectionClosure = (Index, String) -> Void
 public typealias ConfigurationClosure = (Index, String) -> String
@@ -138,7 +176,10 @@ public final class DropDown: UIView {
 		willSet { tableView.rowHeight = newValue }
 		didSet { reloadAllComponents() }
 	}
-
+    public dynamic var headerHeight = DPDConstant.UI.HeaderHeight {
+        didSet { reloadAllComponents() }
+    }
+    
 	fileprivate dynamic var tableViewBackgroundColor = DPDConstant.UI.BackgroundColor {
 		willSet { tableView.backgroundColor = newValue }
 	}
@@ -259,14 +300,41 @@ public final class DropDown: UIView {
 		didSet { reloadAllComponents() }
 	}
 
-	/**
-	The font of the text for each cells of the drop down.
-
-	Changing the text font automatically reloads the drop down.
-	*/
-	public dynamic var textFont = DPDConstant.UI.TextFont {
-		didSet { reloadAllComponents() }
-	}
+    /**
+     The color of the text for each Header Title of the drop down.
+     
+     Changing the text color automatically reloads the drop down.
+     */
+    public dynamic var headerTitleTextColor = DPDConstant.UI.HeaderTitleTextColor {
+        didSet { reloadAllComponents() }
+    }
+    
+    /**
+     The font of the text for each cells of the drop down.
+     
+     Changing the text font automatically reloads the drop down.
+     */
+    public dynamic var textFont = DPDConstant.UI.TextFont {
+        didSet { reloadAllComponents() }
+    }
+    
+    /**
+     The font of the text for each Header title of the drop down.
+     
+     Changing the text font automatically reloads the drop down.
+     */
+    public dynamic var headerTitleTextFont = DPDConstant.UI.HeaderTitleTextFont {
+        didSet { reloadAllComponents() }
+    }
+    
+    /**
+     The font of the text for each Header title of the drop down.
+     
+     Changing the text font automatically reloads the drop down.
+     */
+    public dynamic var headerTitleBackGroundColor = DPDConstant.UI.HeaderTitleBackgroundColor {
+        didSet { reloadAllComponents() }
+    }
     
     /**
      The NIB to use for DropDownCells
@@ -288,12 +356,18 @@ public final class DropDown: UIView {
 
 	Changing the data source automatically reloads the drop down.
 	*/
-	public var dataSource = [String]() {
-		didSet {
-			deselectRow(at: selectedRowIndex)
-			reloadAllComponents()
-		}
-	}
+    public var dataSource = [DataSourceType]() {
+        didSet {
+            deselectRow(at: selectedRowIndex)
+            reloadAllComponents()
+        }
+    }
+    public var titles = [String]() {
+        didSet {
+            deselectRow(at: selectedRowIndex)
+            reloadAllComponents()
+        }
+    }
 
 	/**
 	The localization keys for the data source for the drop down.
@@ -301,11 +375,15 @@ public final class DropDown: UIView {
 	Changing this value automatically reloads the drop down.
 	This has uses for setting accibility identifiers on the drop down cells (same ones as the localization keys).
 	*/
-	public var localizationKeysDataSource = [String]() {
-		didSet {
-			dataSource = localizationKeysDataSource.map { NSLocalizedString($0, comment: "") }
-		}
-	}
+    public var localizationKeysDataSource = [[String]]() {
+        didSet {
+            dataSource.removeAll()
+            localizationKeysDataSource.forEach({ (array) in
+                dataSource.append(array.map { NSLocalizedString($0, comment: "") })
+            })
+            
+        }
+    }
 
 	/// The index of the row after its seleciton.
 	fileprivate var selectedRowIndex: Index?
@@ -666,9 +744,9 @@ extension DropDown {
 		}
 		
 		var maxWidth: CGFloat = 0
-		
-		for index in 0..<dataSource.count {
-			configureCell(templateCell, at: index)
+        let _flatted = dataSource.flatMap({$0})
+        for item in _flatted {
+            templateCell.optionLabel.text = item as? String
 			templateCell.bounds.size.height = cellHeight
 			let width = templateCell.systemLayoutSizeFitting(UILayoutFittingCompressedSize).width
 			
@@ -845,7 +923,7 @@ extension DropDown {
 	public func selectRow(at index: Index?) {
 		if let index = index {
 			tableView.selectRow(
-				at: IndexPath(row: index, section: 0),
+				at: IndexPath(row: index.row, section: index.section),
 				animated: false,
 				scrollPosition: .middle)
 		} else {
@@ -859,27 +937,26 @@ extension DropDown {
 		selectedRowIndex = nil
 
 		guard let index = index
-			, index >= 0
+			 , index.row >= 0
 			else { return }
 
-		tableView.deselectRow(at: IndexPath(row: index, section: 0), animated: true)
+		tableView.deselectRow(at: IndexPath(row: index.row, section: 0), animated: true)
 	}
 
 	/// Returns the index of the selected row.
 	public var indexForSelectedRow: Index? {
-		return (tableView.indexPathForSelectedRow as NSIndexPath?)?.row
+		return tableView.indexPathForSelectedRow
 	}
 
 	/// Returns the selected item.
 	public var selectedItem: String? {
-		guard let row = (tableView.indexPathForSelectedRow as NSIndexPath?)?.row else { return nil }
-
-		return dataSource[row]
+		guard let index = tableView.indexPathForSelectedRow as IndexPath? else { return nil }
+        return dataSourceContentFor(index: index)
 	}
 
 	/// Returns the height needed to display all cells.
 	fileprivate var tableHeight: CGFloat {
-		return tableView.rowHeight * CGFloat(dataSource.count)
+		return tableView.rowHeight * CGFloat(countOfAllElementsInDataSource()) + headerHeight * CGFloat(titles.count)
 	}
 
 }
@@ -887,23 +964,45 @@ extension DropDown {
 //MARK: - UITableViewDataSource - UITableViewDelegate
 
 extension DropDown: UITableViewDataSource, UITableViewDelegate {
-
-	public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-		return dataSource.count
-	}
+    public func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        if dataSource.first is [String] {
+            if titles.count == dataSource.count {
+                return headerHeight
+            }
+        }
+        return 0.0
+    }
+    
+    public func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        if titles.count > section {
+            let label = UILabel()
+            label.backgroundColor = headerTitleBackGroundColor
+            label.text = titles[section]
+            label.font = headerTitleTextFont
+            label.textColor = headerTitleTextColor
+            return label
+        }
+        return nil
+    }
+    
+    public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return numberOfRowsForSection(section: section)
+    }
+    public func numberOfSections(in tableView: UITableView) -> Int {
+        return numberOfSections()
+    }
 
 	public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 		let cell = tableView.dequeueReusableCell(withIdentifier: DPDConstant.ReusableIdentifier.DropDownCell, for: indexPath) as! DropDownCell
-		let index = (indexPath as NSIndexPath).row
-
-		configureCell(cell, at: index)
+		configureCell(cell, at: indexPath)
 
 		return cell
 	}
 	
-	fileprivate func configureCell(_ cell: DropDownCell, at index: Int) {
-		if index >= 0 && index < localizationKeysDataSource.count {
-			cell.accessibilityIdentifier = localizationKeysDataSource[index]
+	fileprivate func configureCell(_ cell: DropDownCell, at index: IndexPath) {
+        print("configure for index \(index)")
+		if index.row >= 0 && index.row < localizationKeysDataSource.count {
+			cell.accessibilityIdentifier = localizationKeysDataSource[index.section][index.row]
 		}
 		
 		cell.optionLabel.textColor = textColor
@@ -911,21 +1010,25 @@ extension DropDown: UITableViewDataSource, UITableViewDelegate {
 		cell.selectedBackgroundColor = selectionBackgroundColor
 		
 		if let cellConfiguration = cellConfiguration {
-			cell.optionLabel.text = cellConfiguration(index, dataSource[index])
+			cell.optionLabel.text = cellConfiguration(index, dataSourceContentFor(index: index.asIndexPath)!)
 		} else {
-			cell.optionLabel.text = dataSource[index]
+			cell.optionLabel.text = dataSourceContentFor(index: index.asIndexPath)
 		}
 		
-		customCellConfiguration?(index, dataSource[index], cell)
+		customCellConfiguration?(index, dataSourceContentFor(index: index.asIndexPath)!, cell)
 	}
 
 	public func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-		cell.isSelected = (indexPath as NSIndexPath).row == selectedRowIndex
+		cell.isSelected =  indexPath == selectedRowIndex?.asIndexPath
 	}
 
 	public func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-		selectedRowIndex = (indexPath as NSIndexPath).row
-		selectionAction?(selectedRowIndex!, dataSource[selectedRowIndex!])
+        selectedRowIndex = indexPath
+        if dataSource.first is [String] {
+            selectedRowIndex = indexPath
+        }
+        
+        selectionAction?(selectedRowIndex!, dataSourceContentFor(index: indexPath)!)
 
 		if let _ = anchorView as? UIBarButtonItem {
 			// DropDown's from UIBarButtonItem are menus so we deselect the selected menu right after selection
@@ -996,3 +1099,41 @@ extension DropDown {
 	}
 
 }
+
+// MARK: - Utlities
+extension DropDown {
+    fileprivate func dataSourceContentFor(index: IndexPath) -> String? {
+        return dataSource[index.section].of(i: index.row)
+    }
+    fileprivate func numberOfRowsForSection(section: Int) -> Int {
+        if dataSource.first is [String] {
+            if let _content = dataSource[section] as? [String] {
+                return _content.count
+            }
+        } else {
+            return dataSource.count
+        }
+        
+        return 0
+    }
+    fileprivate func numberOfSections() -> Int {
+        if dataSource.first is [String] {
+            return dataSource.count
+        } else {
+            return 1
+        }
+    }
+    fileprivate func countOfAllElementsInDataSource() -> Int {
+        var count = 0
+        dataSource.forEach { (ds) in
+            if ds is String {
+                count += 1
+            } else {
+                assert(ds is [String], "Only Strings allowed inside the array")
+                count += (ds as! [String]).count
+            }
+        }
+        return count
+    }
+}
+

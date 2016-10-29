@@ -166,13 +166,13 @@ class ViewController: UIViewController {
 		
 		// You can also use localizationKeysDataSource instead. Check the docs.
 		chooseArticleDropDown.dataSource = [
-			"iPhone SE | Black | 64G",
-			"Samsung S7",
+			["iPhone SE | Black | 64G",
+			"Samsung S7"],[
 			"Huawei P8 Lite Smartphone 4G",
 			"Asus Zenfone Max 4G",
-			"Apple Watwh | Sport Edition"
+			"Apple Watwh | Sport Edition"]
 		]
-		
+		chooseArticleDropDown.titles = ["sd", "sdf"]
 		// Action triggered on selection
 		chooseArticleDropDown.selectionAction = { [unowned self] (index, item) in
 			self.chooseArticleButton.setTitle(item, for: .normal)
