@@ -1,3 +1,5 @@
+### In this fork there is support for sectioned lists also swift 3
+
 ![DropDown](Screenshots/logo.png)
 
 [![Twitter: @kevinh6113](http://img.shields.io/badge/contact-%40kevinh6113-70a1fb.svg?style=flat)](https://twitter.com/kevinh6113)
